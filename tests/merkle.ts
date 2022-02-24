@@ -41,6 +41,9 @@ chai.use(chaiSolana);
 
 const tokenMint = new PublicKey('7VtacnoRgb65PPXoNZZcAku75ggjSGQHgysmLHwu3Gvg');
 
+// CYS token mint
+const cysMint = new PublicKey('cxWg5RTK5AiSbBZh7NRg5btsbSrc8ETLXGf7tk3MUez');
+
 export const DEFAULT_TOKEN_DECIMALS = 6;
 const MAX_NUM_NODES = new u64(3);
 const MAX_TOTAL_CLAIM = new u64(1_000_000_000_000);
@@ -119,9 +122,6 @@ describe("merkle-distributor", () => {
   });
 
   const merkleSdk = MerkleDistributorSDK.load({ provider: solanaProvider });
-
-  // CYS token mint
-  const cysMint = new PublicKey('cxWg5RTK5AiSbBZh7NRg5btsbSrc8ETLXGf7tk3MUez');
 
   // const payer =  solanaProvider.wallet.publicKey // how to get this Signer
   // const token = new Token(solanaProvider.connection, tokenMint, TOKEN_PROGRAM_ID, payer)

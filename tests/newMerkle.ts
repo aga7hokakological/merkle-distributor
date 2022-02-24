@@ -44,13 +44,18 @@ import keypairFile from './keypair.json';
 
 chai.use(chaiSolana);
 
+let keypair;
 let solanaProvider: SolanaProvider;
 const MAX_NUM_NODES = new u64(3);
 const MAX_TOTAL_CLAIM = new u64(1_000_000_000_000);
 const ZERO_BYTES32 = Buffer.alloc(32);
 export const DEFAULT_TOKEN_DECIMALS = 6;
 
-const newTokenMint = new web3.PublicKey('7VtacnoRgb65PPXoNZZcAku75ggjSGQHgysmLHwu3Gvg');
+const player = Keypair.generate();
+
+const newTokenMint = new PublicKey('7VtacnoRgb65PPXoNZZcAku75ggjSGQHgysmLHwu3Gvg');
+// CYS token mint
+const cysMint = new PublicKey('cxWg5RTK5AiSbBZh7NRg5btsbSrc8ETLXGf7tk3MUez');
 
 export const createAndSeedDistributor = async (
   sdk: MerkleDistributorSDK,
@@ -63,12 +68,11 @@ export const createAndSeedDistributor = async (
   pendingDistributor: PendingDistributor;
 }> => {
   const { provider } = sdk;
-  const mint = newTokenMint;
-  // await createMint(
-  //   provider,
-  //   provider.wallet.publicKey,
-  //   DEFAULT_TOKEN_DECIMALS
-  // );
+  const mint = await createMint(
+    solanaProvider,
+    solanaProvider.wallet.publicKey,
+    DEFAULT_TOKEN_DECIMALS
+  );
 
   const pendingDistributor = await sdk.createDistributor({
     root,
@@ -77,24 +81,26 @@ export const createAndSeedDistributor = async (
     tokenMint: mint,
   });
   // await expectTX(pendingDistributor.tx, "create merkle distributor").to.be.fulfilled;
-  let txBuild = pendingDistributor.tx.build();
-  txBuild.recentBlockhash = (await solanaProvider.connection.getLatestBlockhash()).blockhash;
-  let txSig = await solanaProvider.send(txBuild, pendingDistributor.tx.signers)
-  console.log(`Verified::=>  ${txSig}`);
+  console.log("Till here")
+  let txBuildx = pendingDistributor.tx.build();
+  txBuildx.recentBlockhash = (await solanaProvider.connection.getLatestBlockhash()).blockhash;
+  console.log("Blockhash: ", txBuildx.recentBlockhash);
+  let txSigx = await solanaProvider.send(txBuildx, pendingDistributor.tx.signers);
+  console.log(`Verified::=>  ${txSigx}`);
 
   // Seed merkle distributor with tokens
   const ix = SPLToken.createMintToInstruction(
     TOKEN_PROGRAM_ID,
     mint,
     pendingDistributor.distributorATA,
-    provider.wallet.publicKey,
+    solanaProvider.wallet.publicKey,
     [],
     maxTotalClaim
   );
-  const tx = new TransactionEnvelope(provider, [ix]);
+  const tx = new TransactionEnvelope(solanaProvider, [ix]);
   // await expectTX(tx, "seed merkle distributor with tokens").to.be.fulfilled;
   let txBuild1 = tx.build();
-  txBuild.recentBlockhash = (await solanaProvider.connection.getLatestBlockhash()).blockhash;
+  txBuild1.recentBlockhash = (await solanaProvider.connection.getRecentBlockhash()).blockhash;
   let txSig1 = await solanaProvider.send(txBuild1, tx.signers)
   console.log(`Verified::=>  ${txSig1}`);
   
@@ -106,34 +112,15 @@ export const createAndSeedDistributor = async (
   };
 };
 
-// export async function createMint(
-//   provider: Provider,
-//   connection: web3.Connection,
-//   authority?: PublicKey,
-//   decimals?: number
-// ): Promise<PublicKey> {
-//   const keypair = web3.Keypair.fromSeed(Uint8Array.from(keypairFile.slice(0, 32)));
-//   const tokenAccounts = await connection.getTokenAccountsByOwner(
-//     keypair.publicKey,
-//     {
-//       programId: TOKEN_PROGRAM_ID,
-//     }
-//   );
-
-//   const coin = 
-
-//   return newTokenMint;
-// };
-
 async function main() {
 
-    const keypair = web3.Keypair.fromSeed(Uint8Array.from(keypairFile.slice(0, 32)));
+    keypair = web3.Keypair.fromSeed(Uint8Array.from(keypairFile.slice(0, 32)));
     console.log("pubkey: ", keypair.publicKey.toString());
     const wallet = new anchor.Wallet(keypair);
     const owner = wallet.publicKey;
-    sleep(2000);
-    // console.log(web3.clusterApiUrl('localnet'));
-    const connection = new web3.Connection(web3.clusterApiUrl('devnet'), 'confirmed');
+    const api = web3.clusterApiUrl('devnet');
+    // http://localhost:8899
+    const connection = new web3.Connection('http://localhost:8899');
     const anchorProvider = new anchor.Provider(connection, wallet, {});
     anchor.setProvider(anchorProvider);
 
@@ -142,6 +129,7 @@ async function main() {
       wallet,
       opts: {},
     });
+    console.log("Done here")
 
     const merkleSdk = MerkleDistributorSDK.load({ provider: solanaProvider });
 
@@ -153,12 +141,13 @@ async function main() {
     const allKps = [kpOne, kpTwo, kpThree, kpFour, kpFive];
     await Promise.all(
       allKps.map(async (kp) => {
-        await anchorProvider.connection.requestAirdrop(
+        await solanaProvider.connection.requestAirdrop(
           kp.publicKey,
           LAMPORTS_PER_SOL
         );
       })
     );
+    console.log("Done here")
 
     const claimAmountOne = new u64(100);
     const claimAmountTwo = new u64(101);
@@ -172,15 +161,18 @@ async function main() {
       { account: kpFour.publicKey, amount: claimAmountFour },
       { account: kpFive.publicKey, amount: claimAmountFive }
     ]);
+    console.log("Done here")
 
     const root = tree.getRoot();
 
+    console.log("Done here")
     const { distributor } = await createAndSeedDistributor(
       merkleSdk,
       MAX_TOTAL_CLAIM,
       MAX_NUM_NODES,
       root,
     );
+    console.log("Done here")
 
     const distributorW = await merkleSdk.loadDistributor(distributor);
     await Promise.all(
@@ -195,7 +187,7 @@ async function main() {
           claimant: kp.publicKey,
         });
         let txBuild = tx.build();
-        txBuild.recentBlockhash = (await solanaProvider.connection.getLatestBlockhash()).blockhash;
+        txBuild.recentBlockhash = (await solanaProvider.connection.getRecentBlockhash()).blockhash;
         let txSig = await solanaProvider.send(txBuild, tx.signers)
         console.log(`Verified::=>  ${txSig}`);
 
