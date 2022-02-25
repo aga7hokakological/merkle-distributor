@@ -4,10 +4,10 @@ import { PublicKey, SolanaProvider, TransactionEnvelope } from '@saberhq/solana-
 import { ASSOCIATED_TOKEN_PROGRAM_ID, createMintInstructions, getATAAddress, TOKEN_PROGRAM_ID, u64, getTokenAccount } from '@saberhq/token-utils'
 import { Token } from '@solana/spl-token'
 import { Keypair, SystemProgram, Transaction, LAMPORTS_PER_SOL } from "@solana/web3.js"
-import { findEscrowAddress, findGovernorAddress, findLockerAddress, LockerWrapper, TribecaSDK } from '@tribecahq/tribeca-sdk'
 import keypairFile from './keypair.json'
 import type { Provider } from "@saberhq/solana-contrib";
 import * as SPLToken from "@solana/spl-token";
+import { expect } from 'chai';
 import { 
   MerkleDistributorErrors, 
   MerkleDistributorSDK,
@@ -68,18 +68,8 @@ async function main() {
   cysTx.recentBlockhash = (await solanaProvider.connection.getLatestBlockhash()).blockhash;
   const txhash = await anchorProvider.send(cysTx, [signer, cysMint])
   console.log(`txhash: ${txhash}`);
-  // solanaProvider.connection.getAccountInfo()
-  const data = await SPLToken.Token.getAssociatedTokenAddress(
-    SPLToken.ASSOCIATED_TOKEN_PROGRAM_ID, 
-    SPLToken.TOKEN_PROGRAM_ID, 
-    cysMint.publicKey, 
-    signer.publicKey
-    );
-  console.log("Adta:  => ", data.toString());
 
   const merkleSdk = MerkleDistributorSDK.load({ provider: solanaProvider });
-
-  // console.log("SDK: ", merkleSdk.);
 
     const kpOne = web3.Keypair.generate();
     const kpTwo = web3.Keypair.generate();
@@ -109,16 +99,7 @@ async function main() {
       { account: kpFour.publicKey, amount: claimAmountFour },
       { account: kpFive.publicKey, amount: claimAmountFive }
     ]);
-    const root = tree.getRoot()
-    console.log("ROOT: ", root.toString());
-
-    // const { distributor } = await createAndSeedDistributor(
-    //   merkleSdk,
-    //   MAX_NUM_NODES,
-    //   MAX_TOTAL_CLAIM,
-    //   tree.getRoot()
-    // )
-    // console.log("Wokring till distrib")
+    const root = tree.getRoot();
 
     const newDistributor = await merkleSdk.createDistributor({
       root,
@@ -126,16 +107,11 @@ async function main() {
       maxTotalClaim: new u64(100000000),
       tokenMint: cysMint.publicKey
     })
-    console.log("DISTRIB: ", newDistributor.distributor.toString());
-    console.log("ATA: ", newDistributor.distributorATA.toString());
     let txBuild = newDistributor.tx.build();
     txBuild.recentBlockhash = (await solanaProvider.connection.getLatestBlockhash()).blockhash;
     txBuild.feePayer = anchorProvider.wallet.publicKey;
-    const str = txBuild.serializeMessage().toString('base64');
-    console.log(`https://explorer.solana.com/tx/inspector?message=${encodeURIComponent(str)}&cluster=custom`) 
     let txSig = await anchorProvider.send(txBuild, newDistributor.tx.signers);
     console.log(`New Distributor::=>  ${txSig}`);
-    console.log("Wokring right")
     
     // Seed merkle distributor with tokens
   const ix = SPLToken.Token.createMintToInstruction(
@@ -148,12 +124,8 @@ async function main() {
   );
   let txs = new Transaction()
   txs.add(ix)
-  // const tx = new TransactionEnvelope(solanaProvider, [ix]);
-  // let txBuild1 = tx.build();
   txs.feePayer = anchorProvider.wallet.publicKey;
   txs.recentBlockhash = (await anchorProvider.connection.getLatestBlockhash()).blockhash;
-  const str1 = txs.serializeMessage().toString('base64');
-  console.log(`https://explorer.solana.com/tx/inspector?message=${encodeURIComponent(str1)}&cluster=custom`) 
   let txSig1 = await anchorProvider.send(txs)
   console.log(`New Distributor Seeded::=>  ${txSig1}`);
 
@@ -173,10 +145,6 @@ async function main() {
       let txBuild = tx.build();
       txBuild.recentBlockhash = (await anchorProvider.connection.getLatestBlockhash()).blockhash;
       txBuild.feePayer = anchorProvider.wallet.publicKey;
-      const str = txBuild.serializeMessage().toString('base64');
-      console.log("Working right")
-      console.log(`https://explorer.solana.com/tx/inspector?message=${encodeURIComponent(str)}&cluster=custom`) 
-      console.log("Failing Here")
       let txSig = await anchorProvider.send(txBuild, [kp])
       console.log(`Verified::=>  ${txSig}`);
 
@@ -186,6 +154,10 @@ async function main() {
           mint: distributorW.data.mint,
           owner: kp.publicKey,
         })
+      );
+
+      expect(tokenAccountInfo.amount.toString()).to.equal(
+        amount.toString()
       );
     })
   )
