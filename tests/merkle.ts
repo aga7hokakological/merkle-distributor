@@ -10,7 +10,8 @@ import { Keypair,
   Transaction,
   SystemProgram
 } from "@solana/web3.js";
-import { Provider as AnchorProvider, setProvider } from '@project-serum/anchor';
+import { Provider as AnchorProvider, setProvider, Program } from '@project-serum/anchor';
+import * as anchor from '@project-serum/anchor';
 import chai, { expect } from "chai";
 import { 
   PublicKey, 
@@ -35,7 +36,8 @@ import {
   findClaimStatusKey, 
   findDistributorKey,
 } from "@saberhq/merkle-distributor";
-import { BalanceTree } from './utils/balance-tree';
+import { BalanceTree } from '../scripts/utils/balance-tree';
+import { Merkle } from '../target/types/merkle';
 
 chai.use(chaiSolana);
 
@@ -43,6 +45,7 @@ const tokenMint = new PublicKey('7VtacnoRgb65PPXoNZZcAku75ggjSGQHgysmLHwu3Gvg');
 
 // CYS token mint
 const cysMint = new PublicKey('cxWg5RTK5AiSbBZh7NRg5btsbSrc8ETLXGf7tk3MUez');
+
 
 export const DEFAULT_TOKEN_DECIMALS = 6;
 const MAX_NUM_NODES = new u64(3);
@@ -121,6 +124,8 @@ describe("merkle-distributor", () => {
     opts: anchorProvider.opts,
   });
 
+  const program = anchor.workspace.LiquidityMining as Program<Merkle>;
+
   const merkleSdk = MerkleDistributorSDK.load({ provider: solanaProvider });
 
   // const payer =  solanaProvider.wallet.publicKey // how to get this Signer
@@ -137,7 +142,7 @@ describe("merkle-distributor", () => {
       ZERO_BYTES32,
     );
     const { distributor, base, bump } = pendingDistributor;
-    const distributorW = await merkleSdk.loadDistributor(distributor);
+    distributorW = await merkleSdk.loadDistributor(distributor);
 
     const { data } = distributorW;
     expect(data.bump).to.equal(bump);
@@ -222,7 +227,7 @@ describe("merkle-distributor", () => {
         MAX_NUM_NODES,
         tree.getRoot()
       );
-
+      console.log(distributor.toString())
       const distributorW = await merkleSdk.loadDistributor(distributor);
       await Promise.all(
         allKps.map(async (kp, index) => {
